@@ -1,4 +1,4 @@
-# ami-security-assessment
+# Hard Target
 
 A serverless solution to provide security assessments of newly built AMIs.
 
