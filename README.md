@@ -2,21 +2,37 @@
 
 A serverless solution to provide security assessments of newly built AMIs.
 
-This project relies heavily on Amaon Web Services (AWS).
+This project relies heavily on Amazon Web Services (AWS).
 
 ## Logic
 
-When a new AMI is built, a CloudWatch Event is published onto the event
-bus.  This project captures that event and initiates a set of processes.
+When a new AMI is built, an event is published onto EventBridge.
+This project captures that event and initiates a set of processes.
 The first process is to spin up an EC2 instance using the newly built
-AMI.  Once the server has started, Lynis is installed and
+AMI.  Once the server has started, Lynis is installed and then run so
+that it generates a report.  This should take about 3 minutes.  Once the
+report is ready, it is uploaded to an S3 bucket for permanent storage.
+Finally, the server shuts itself down.
+
+When the report lands in the S3 bucket, an event notification occurs
+which notifies Event Bridge.  This invokes two Lambda functions.  The
+first shuts down the EC2 instance.  The second inspects the report, pulls
+out the score, then tags the AMI with the score.
+
+And finally, there is a Lambda function which runs every 10 minutes to
+check whether there are any old EC2 instances still sitting around doing
+nothing.  Perhaps they got stuck.  It terminates them.
+
+### Sequence Diagrams
+
+#### Assessing an AMI
 
 ```mermaid
 sequenceDiagram
-  title AMI Security Assessment
+  title Assessing an AMI
 
   participant AMI
-  participant CWE as "CloudWatch Events"
+  participant EB as EventBridge
   participant L1 as Lambda1
   participant L2 as Lambda2
   participant L3 as Lambda3
@@ -26,19 +42,74 @@ sequenceDiagram
   participant S3
   participant SNS
 
-  AMI->CWE: puts event
-  CWE->L1: invokes
+  AMI->EB: puts event
+  EB->L1: invokes
   L1->CFN: launches
   CFN->EC2: creates
   EC2->S3: uploads report
-  EC2->CWE: puts event
-  CWE->L2: invokes
+  S3->EB: puts event
+```
+
+#### Cleaning Up
+
+```mermaid
+sequenceDiagram
+  title Cleaning Up
+
+  participant AMI
+  participant EB as EventBridge
+  participant L2 as Lambda2
+  participant L3 as Lambda3
+  participant L4 as Lambda4
+  participant CFN as CloudFormation
+  participant EC2
+  participant S3
+  participant SNS
+
+  EB->L2: invokes
   L2->CFN: deletes
   CFN->EC2: terminates
-  CWE->L3: invokes
-  L3->SNS: publishes
-  CWE->L4: invokes
-  L4->AMI: tags
+```
+
+#### Inspecting the Report
+
+```mermaid
+sequenceDiagram
+  title Inspecting the Report
+
+  participant AMI
+  participant EB as EventBridge
+  participant L as Lambda
+  participant CFN as CloudFormation
+  participant EC2
+  participant S3
+  participant SNS
+
+  EB->L: invokes
+  L->S3: get report
+  S3-->L: << file >>
+  L->L: get score from report
+  L->L: get AMI from event
+  L->AMI: tags
+```
+
+#### Reaping Stuck EC2 Instances
+
+```mermaid
+sequenceDiagram
+  title Reaping Stuck EC2 Instances
+
+  participant EB as EventBridge
+  participant L as Lambda
+  participant CFN as CloudFormation
+
+  EB->EB: timer fires every 10 mins
+  EB->L: invokes
+  L->CFN: list old hardtarget stacks
+  CFN-->L: << list(stacks) >>
+  loop "each stack"
+    L->CFN: delete stack
+  end
 ```
 
 ## Goals
