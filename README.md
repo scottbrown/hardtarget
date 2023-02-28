@@ -11,35 +11,34 @@ bus.  This project captures that event and initiates a set of processes.
 The first process is to spin up an EC2 instance using the newly built
 AMI.  Once the server has started, Lynis is installed and
 
-```mermaidjs
-@startuml
-title AMI Security Assessment
+```mermaid
+sequenceDiagram
+  title AMI Security Assessment
 
-participant AMI
-participant CloudWatch Events as CWE
-participant Lambda1 as L1
-participant Lambda2 as L2
-participant Lambda3 as L3
-participant Lambda4 as L4
-participant CloudFormation as CFN
-participant EC2
-participant S3
-participant SNS
+  participant AMI
+  participant CWE as "CloudWatch Events"
+  participant L1 as Lambda1
+  participant L2 as Lambda2
+  participant L3 as Lambda3
+  participant L4 as Lambda4
+  participant CFN as CloudFormation
+  participant EC2
+  participant S3
+  participant SNS
 
-AMI->CWE: puts event
-CWE->L1: invokes
-L1->CFN: launches
-CFN->EC2: creates
-EC2->S3: uploads report
-EC2->CWE: puts event
-CWE->L2: invokes
-L2->CFN: deletes
-CFN->EC2: terminates
-CWE->L3: invokes
-L3->SNS: publishes
-CWE->L4: invokes
-L4->AMI: tags
-@enduml
+  AMI->CWE: puts event
+  CWE->L1: invokes
+  L1->CFN: launches
+  CFN->EC2: creates
+  EC2->S3: uploads report
+  EC2->CWE: puts event
+  CWE->L2: invokes
+  L2->CFN: deletes
+  CFN->EC2: terminates
+  CWE->L3: invokes
+  L3->SNS: publishes
+  CWE->L4: invokes
+  L4->AMI: tags
 ```
 
 ## Goals
