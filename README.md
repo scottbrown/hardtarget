@@ -33,21 +33,20 @@ sequenceDiagram
 
   participant AMI
   participant EB as EventBridge
-  participant L1 as Lambda1
-  participant L2 as Lambda2
-  participant L3 as Lambda3
-  participant L4 as Lambda4
+  participant L as Lambda
   participant CFN as CloudFormation
   participant EC2
   participant S3
-  participant SNS
 
-  AMI->EB: puts event
-  EB->L1: invokes
-  L1->CFN: launches
-  CFN->EC2: creates
-  EC2->S3: uploads report
-  S3->EB: puts event
+  AMI->>EB: publish event
+  EB->>L: invokes
+  L->>CFN: launches
+  CFN->>L: << success >>
+  CFN->>EC2: creates
+  EC2->>EC2: run user data
+  EC2->>S3: uploads report
+  S3->>EC2: << success >>
+  S3->>EB: puts event
 ```
 
 #### Cleaning Up
@@ -56,19 +55,17 @@ sequenceDiagram
 sequenceDiagram
   title Cleaning Up
 
-  participant AMI
   participant EB as EventBridge
-  participant L2 as Lambda2
-  participant L3 as Lambda3
-  participant L4 as Lambda4
+  participant L as Lambda
   participant CFN as CloudFormation
   participant EC2
   participant S3
-  participant SNS
 
-  EB->L2: invokes
-  L2->CFN: deletes
-  CFN->EC2: terminates
+  EB->>L: invokes
+  L->>CFN: deletes
+  CFN->>EC2: terminates
+  EC2-->>CFN: << success >>
+  CFN->>L: << success >>
 ```
 
 #### Inspecting the Report
@@ -85,12 +82,12 @@ sequenceDiagram
   participant S3
   participant SNS
 
-  EB->L: invokes
-  L->S3: get report
-  S3-->L: << file >>
-  L->L: get score from report
-  L->L: get AMI from event
-  L->AMI: tags
+  EB->>L: invokes
+  L->>S3: get report
+  S3-->>L: << file >>
+  L->>L: get score from report
+  L->>L: get AMI from event
+  L->>AMI: tags
 ```
 
 #### Reaping Stuck EC2 Instances
@@ -103,12 +100,12 @@ sequenceDiagram
   participant L as Lambda
   participant CFN as CloudFormation
 
-  EB->EB: timer fires every 10 mins
-  EB->L: invokes
-  L->CFN: list old hardtarget stacks
-  CFN-->L: << list(stacks) >>
+  EB->>EB: timer fires every 10 mins
+  EB->>L: invokes
+  L->>CFN: list old hardtarget stacks
+  CFN-->>L: << list(stacks) >>
   loop "each stack"
-    L->CFN: delete stack
+    L->>CFN: delete stack
   end
 ```
 
