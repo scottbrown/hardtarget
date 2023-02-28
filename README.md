@@ -40,12 +40,16 @@ sequenceDiagram
 
   AMI->>EB: publish event
   EB->>L: invokes
+  activate L
   L->>CFN: launches
-  CFN->>L: << success >>
+  CFN-->>L: << ok >>
+  deactivate L
+  activate EC2
   CFN->>EC2: creates
   EC2->>EC2: run user data
   EC2->>S3: uploads report
-  S3->>EC2: << success >>
+  S3-->>EC2: << ok >>
+  deactivate EC2
   S3->>EB: puts event
 ```
 
@@ -59,13 +63,12 @@ sequenceDiagram
   participant L as Lambda
   participant CFN as CloudFormation
   participant EC2
-  participant S3
 
   EB->>L: invokes
   L->>CFN: deletes
   CFN->>EC2: terminates
-  EC2-->>CFN: << success >>
-  CFN->>L: << success >>
+  EC2-->>CFN: << ok >>
+  CFN-->>L: << ok >>
 ```
 
 #### Inspecting the Report
@@ -74,20 +77,21 @@ sequenceDiagram
 sequenceDiagram
   title Inspecting the Report
 
-  participant AMI
   participant EB as EventBridge
   participant L as Lambda
   participant CFN as CloudFormation
   participant EC2
   participant S3
-  participant SNS
 
   EB->>L: invokes
+  activate L
   L->>S3: get report
   S3-->>L: << file >>
   L->>L: get score from report
   L->>L: get AMI from event
   L->>AMI: tags
+  AMI-->>L: << ok >>
+  deactivate L
 ```
 
 #### Reaping Stuck EC2 Instances
@@ -102,11 +106,14 @@ sequenceDiagram
 
   EB->>EB: timer fires every 10 mins
   EB->>L: invokes
+  activate L
   L->>CFN: list old hardtarget stacks
   CFN-->>L: << list(stacks) >>
   loop "each stack"
     L->>CFN: delete stack
+    CFN-->>L: << ok >>
   end
+  deactivate L
 ```
 
 ## Goals
